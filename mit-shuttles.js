@@ -120,28 +120,21 @@ function getPathFeaturesFromRoute(r) {
 
 function getVehicles() {
   var url = nextbusUrl("vehicleLocations", nextbusAgency, nextbusRoute, "&t=0");
-  var request = new XMLHttpRequest();
+  
+  downloadURL(url, function(request) {
+    // convert to GeoJSON and update feature layer
+    var geoJSON = toGeoJSON(request.responseText);
+    featureLayer.setGeoJSON(geoJSON);
+    
+    // additional display adjustments
+    //map.fitBounds(featureLayer.getBounds());
+    //rotateMarkers();
 
-  request.onreadystatechange = function() {
-    if (request.readyState === 4) {
-      // convert to GeoJSON and update feature layer
-      var geoJSON = toGeoJSON(request.responseText);
-      featureLayer.setGeoJSON(geoJSON);
-      
-      // additional display adjustments
-      // map.fitBounds(featureLayer.getBounds());
-      //rotateMarkers();
-
-      // run it again after some time
-      window.setTimeout(function() {
-        getVehicles();
-      }, refreshTimeout);
-    }
-  };
-
-  console.log("XMLHttpRequest GET " + url);
-  request.open("GET", url, true);
-  request.send();
+    // run it again after some time
+    window.setTimeout(function() {
+      getVehicles();
+    }, refreshTimeout);
+  });  
 }
 
 
@@ -202,17 +195,23 @@ function nextbusUrl(command, agency, route, otherParams) {
 // Get route information so we can color routes, get full names, etc.
 function getRoutes() {
   var url = nextbusUrl("routeConfig", nextbusAgency, nextbusRoute);
+  downloadURL(url, function(request) {
+    var responseJSON = x2js.xml_str2json(request.responseText);
+    
+    // keep around globally
+    // like with vehicles, x2JS might make it Array or Object, ensure Array
+    routes = routes.concat(responseJSON.body.route);
+    
+    getVehicles();
+  });
+}
+
+
+function downloadURL(url, callback) {
   var request = new XMLHttpRequest();
-  
   request.onreadystatechange = function() {
     if (request.readyState === 4) {
-      var responseJSON = x2js.xml_str2json(request.responseText);
-      
-      // keep around globally
-      // like with vehicles, x2JS might make it Array or Object, ensure Array
-      routes = routes.concat(responseJSON.body.route);
-      
-      getVehicles();
+      callback(request);
     }
   };
 
