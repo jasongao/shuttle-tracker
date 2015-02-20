@@ -5,6 +5,7 @@ nextbusRequests = [
     "agency": "mit",
     "route": ""
   },
+/* 
   {
     "agency": "mbta",
     "route": "47"
@@ -13,9 +14,12 @@ nextbusRequests = [
     "agency": "mbta",
     "route": "1"
   }
+*/
 ];
 
 x2js = new X2JS();
+
+firstFit = false;
 
 
 function constructGeoJSONAll() {
@@ -263,10 +267,14 @@ function getVehicles() {
       // Process to GeoJSON and display on map
       var geoJSONAll = constructGeoJSONAll();
       featureLayer.setGeoJSON(geoJSONAll);
+      rotateMarkers();
       
       // additional display adjustments
-      //map.fitBounds(featureLayer.getBounds());
-      rotateMarkers();
+      if (!firstFit) {
+        map.fitBounds(featureLayer.getBounds());  
+        firstFit = true;
+      }
+
       
       // run it again after some time
       window.setTimeout(function() {
