@@ -1,24 +1,46 @@
 refreshTimeout = 10000;
-x2js = new X2JS();
 L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25nYW8iLCJhIjoiWEFEbnplWSJ9.z_4HeYl01RN0tYSK6DxpbQ';
-nextbusAgency = "mit";
-nextbusRoute = "";
-routes = [];
+nextbusRequests = [
+  {
+    "agency": "mit",
+    "route": ""
+  },
+  {
+    "agency": "mbta",
+    "route": "47"
+  },
+  {
+    "agency": "mbta",
+    "route": "1"
+  }
+];
 
-function toGeoJSON(responseText) {
-  var responseJSON = x2js.xml_str2json(responseText);
+x2js = new X2JS();
+
+
+function constructGeoJSONAll() {
+  geoJSON = {};
+  geoJSON.type = "FeatureCollection";
+  geoJSON.features = [];
+  
+  nextbusRequests.forEach(function(nextbusRequest){
+    var features = vehiclesToGeoJSONFeatures(nextbusRequest);
+    geoJSON.features = geoJSON.features.concat(features);
+  });
+  
+  return geoJSON;
+}
+
+function vehiclesToGeoJSONFeatures(nextbusRequest) {
+  var vehicles = nextbusRequest.vehicles;
   var geoJSON = [];
-  var vehicles = [];
 
-  // "vehicles" might be a single Object or an Array; ensure it's an Array
-  vehicles = vehicles.concat(responseJSON.body.vehicle);
-
-  for (var i = 0; i < vehicles.length; i++) {
-    console.log("Parsing " + vehicles.length + " vehicles...");
+  console.log("Parsing " + vehicles.length + " vehicles...");
+  for (var i = 0; i < vehicles.length; i++) {  
     var v = vehicles[i];
-    
+
     // Find which route this vehicle is on
-    var r = findRoute(v._routeTag);
+    var r = findRoute(nextbusRequest.agency, v._routeTag);
     if (r === null) {
       console.log("Couldn't find matching route for vehicle routeTag " + v._routeTag);
       v._title = v._routeTag;
@@ -28,12 +50,12 @@ function toGeoJSON(responseText) {
       // TODO refactor so it's called once per route rather than per vehicle
       geoJSON = geoJSON.concat(getPathFeaturesFromRoute(r));
       //geoJSON = geoJSON.concat(getStopFeaturesFromRoute(r));
-      
+
       // Add in vehicle display details
       v._title = r._title;
       v._color = r._color;
     }
-    
+
     // Create a GeoJSON Point Feature for this vehicle from the info in the XML
     var v_out = {
       "type": "Feature",
@@ -45,7 +67,7 @@ function toGeoJSON(responseText) {
         "title": v._title,
         "description": v._secsSinceReport + " sec ago, " + v._speedKmHr + " km/h, heading " + v._heading,
         "marker-color": v._color,
-        "marker-size": "large",
+        "marker-size": "medium",
         "marker-symbol": "bus"
       }
     };
@@ -53,34 +75,33 @@ function toGeoJSON(responseText) {
     geoJSON.push(v_out);
   }
   
-  // console.log(geoJSON);
   return geoJSON;
 }
 
 
 function getStopFeaturesFromRoute(r) {
   features = [];
-  
+
   for (var i = 0; i < r.stop.length; i++) {
     s = r.stop[i];
-    
+
     var p = {};
-    
+
     p.type = "Feature";
-    
+
     p.properties = {};
     p.properties["marker-color"] = "#" + r._color;
     p.properties["marker-size"] = "small";
     p.properties["marker-symbol"] = "circle";
     p.properties["title"] = s._title;
-    
+
     p.geometry = {};
     p.geometry.type = "Point";
     p.geometry.coordinates = [s._lon, s._lat];
-    
+
     features.push(p);
   }
-  
+
   return features;
 }
 
@@ -88,53 +109,33 @@ function getStopFeaturesFromRoute(r) {
 function getPathFeaturesFromRoute(r) {
   console.log("Parsing route " + r._tag);
   features = [];
-  
+
   for (var i = 0; i < r.path.length; i++) {
     pathSegment = r.path[i];
-    
+
     var ls = {};
-    
+
     ls.type = "Feature";
-    
+
     ls.properties = {};
     ls.properties.stroke = "#" + r._color;
     ls.properties["stroke-width"] = 2;
     ls.properties["stroke-opacity"] = 1.0;
-    
+
     ls.geometry = {};
     ls.geometry.type = "LineString";
     ls.geometry.coordinates = [];
-    
+
     for (var j = 0; j < pathSegment.point.length; j++) {
       p = pathSegment.point[j];
-      ls.geometry.coordinates.push([p._lon,p._lat]);
+      ls.geometry.coordinates.push([p._lon, p._lat]);
     }
-    
+
     //console.log(ls);    
     features.push(ls);
   }
-  
+
   return features;
-}
-
-
-function getVehicles() {
-  var url = nextbusUrl("vehicleLocations", nextbusAgency, nextbusRoute, "&t=0");
-  
-  downloadURL(url, function(request) {
-    // convert to GeoJSON and update feature layer
-    var geoJSON = toGeoJSON(request.responseText);
-    featureLayer.setGeoJSON(geoJSON);
-    
-    // additional display adjustments
-    //map.fitBounds(featureLayer.getBounds());
-    //rotateMarkers();
-
-    // run it again after some time
-    window.setTimeout(function() {
-      getVehicles();
-    }, refreshTimeout);
-  });  
 }
 
 
@@ -155,20 +156,28 @@ function rotateMarkers() {
 }
 
 
-function findRoute(tag) {
-  if (typeof routes === 'undefined') {
-    return null;
-  }
+function findRoute(agency, tag) {
+  var routes = [];
+  nextbusRequests.forEach(function(nextbusRequest) {
+    if (nextbusRequest.agency === agency) {
+      if (nextbusRequest.route === "" || nextbusRequest.route === tag) {
+        routes = nextbusRequest.routes;
+      }
+    }
+  });
+  
   for (var i = 0; i < routes.length; i++) {
-    if (routes[i]._tag === tag ) {
+    if (routes[i]._tag === tag) {
       return routes[i];
     }
   }
+  
   return null;
 }
 
 
 // Add a randomized GET parameter to prevent caching by ISP / network
+
 function randomizeUrl(url) {
   return url + "&anticache=" + new Date().getTime();
 }
@@ -194,15 +203,69 @@ function nextbusUrl(command, agency, route, otherParams) {
 
 // Get route information so we can color routes, get full names, etc.
 function getRoutes() {
-  var url = nextbusUrl("routeConfig", nextbusAgency, nextbusRoute);
-  downloadURL(url, function(request) {
-    var responseJSON = x2js.xml_str2json(request.responseText);
+  async.each(nextbusRequests, function(nextbusRequest, callback) {
+    var url = nextbusUrl("routeConfig", nextbusRequest.agency, nextbusRequest.route);
     
-    // keep around globally
-    // like with vehicles, x2JS might make it Array or Object, ensure Array
-    routes = routes.concat(responseJSON.body.route);
+    downloadURL(url, function(request) {
+      var responseJSON = x2js.xml_str2json(request.responseText);
+      
+      // x2JS might return Array or Object, ensure Array
+      nextbusRequest.routes = [].concat(responseJSON.body.route);
+      
+      callback();
+    });
+  }, function(err){
+      if (err) {
+        // One of the iterations produced an error.
+        // All processing will now stop.
+        console.log('Failed to get a route: ' + err);
+      } else {
+        console.log('All routes downloaded and processed.');
+      }
+      
+      //nextbusRequests.forEach(function(request) {
+      //  console.log(request.routes);
+      //});
+            
+      getVehicles();
+  });
+}
+
+
+function getVehicles() {
+  async.each(nextbusRequests, function(nextbusRequest, callback) {
+    var url = nextbusUrl("vehicleLocations", nextbusRequest.agency, nextbusRequest.route, "&t=0");
     
-    getVehicles();
+    downloadURL(url, function(request) {
+      var responseJSON = x2js.xml_str2json(request.responseText);
+
+      // x2JS might return Array or Object, ensure Array
+      nextbusRequest.vehicles = [].concat(responseJSON.body.vehicle);
+      
+      callback();
+    });
+    
+  }, function(err){
+      if (err) {
+        // One of the iterations produced an error.
+        // All processing will now stop.
+        console.log('Failed to get vehicle locations for a route: ' + err);
+      } else {
+        console.log('Vehicle locations for all routes downloaded and processed.');
+      }
+      
+      // Process to GeoJSON and display on map
+      var geoJSONAll = constructGeoJSONAll();
+      featureLayer.setGeoJSON(geoJSONAll);
+      
+      // additional display adjustments
+      //map.fitBounds(featureLayer.getBounds());
+      //rotateMarkers();
+      
+      // run it again after some time
+      window.setTimeout(function() {
+        getVehicles();
+      }, refreshTimeout);
   });
 }
 
