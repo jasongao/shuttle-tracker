@@ -131,8 +131,7 @@ function getPathFeaturesFromRoute(r) {
       p = pathSegment.point[j];
       ls.geometry.coordinates.push([p._lon, p._lat]);
     }
-
-    //console.log(ls);    
+    
     features.push(ls);
   }
 
@@ -146,19 +145,23 @@ function rotateMarkers() {
       return;
     }
     
-    var angle = marker.feature.properties.heading + 180;
+    var angle = marker.feature.properties.heading - 180;
     
+    // MIT-licensed code by Benjamin Becquet
+    // https://github.com/bbecquet/Leaflet.PolylineDecorator
+    marker._setPos = function(pos) {
+      L.Marker.prototype._setPos.call(this, pos);
+      if (L.DomUtil.TRANSFORM) {
+        // use the CSS transform rule if available
+        this._icon.style[L.DomUtil.TRANSFORM] += ' rotate(' + angle + 'deg)';
+      }
+    }
     if (L.DomUtil.TRANSFORM) {
       // use the CSS transform rule if available
       marker._icon.style[L.DomUtil.TRANSFORM] += ' rotate(' + angle + 'deg)';
-    } else if (L.Browser.ie) {
-      // fallback for IE6, IE7, IE8
-      var rad = angle * L.LatLng.DEG_TO_RAD,
-        costheta = Math.cos(rad),
-        sintheta = Math.sin(rad);
-      marker._icon.style.filter += ' progid:DXImageTransform.Microsoft.Matrix(sizingMethod=\'auto expand\', M11=' +
-        costheta + ', M12=' + (-sintheta) + ', M21=' + sintheta + ', M22=' + costheta + ')';
     }
+    
+    
   });
 }
 
