@@ -8,24 +8,26 @@
       Jason's MIT Shuttle Tracker
     </title>
     
-    <script src='https://x2js.googlecode.com/hg/xml2json.js' type="text/javascript"></script>
-    <script src='https://api.tiles.mapbox.com/mapbox.js/v2.1.5/mapbox.js' type="text/javascript"></script>
+    <script src='//x2js.googlecode.com/hg/xml2json.js' type="text/javascript"></script>
+    <script src='//api.tiles.mapbox.com/mapbox.js/v2.1.5/mapbox.js' type="text/javascript"></script>
     <script src="async.js" type="text/javascript"></script>
     <script src='mit-shuttles.js' type="text/javascript"></script>
     
-    <link href='https://api.tiles.mapbox.com/mapbox.js/v2.1.5/mapbox.css' rel='stylesheet' type="text/css">
+    <link href='//api.tiles.mapbox.com/mapbox.js/v2.1.5/mapbox.css' rel='stylesheet' type="text/css">
+    <link href='//mapbox.com/base/latest/base.css' rel='stylesheet' />
     
     <style type="text/css">
 body { margin:0; padding:0; }
 #map { position:absolute; top:0; bottom:0; width:100%; }
+.refresh-button { position: absolute; top: 10px; right: 10px; }
     </style>
-    
   </head>
   
   <body>
     <div id='map'></div>
+    <a id='refresh-button' href='#' class='rcon refresh button loud refresh-button'></a>
     <script>
-       trackerStart();
+       start();
     </script>
   </body>
   

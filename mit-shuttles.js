@@ -1,3 +1,4 @@
+fitOnParse = false;
 refreshTimeout = 10000;
 L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25nYW8iLCJhIjoiWEFEbnplWSJ9.z_4HeYl01RN0tYSK6DxpbQ';
 nextbusRequests = [
@@ -5,11 +6,11 @@ nextbusRequests = [
     "agency": "mit",
     "route": ""
   },
-/* 
   {
     "agency": "mbta",
     "route": "47"
   },
+/*
   {
     "agency": "mbta",
     "route": "1"
@@ -18,8 +19,9 @@ nextbusRequests = [
 ];
 
 x2js = new X2JS();
-
 firstFit = false;
+refreshButton = null;
+getVehiclesTimeoutId = null;
 
 
 function constructGeoJSONAll() {
@@ -61,6 +63,13 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
     }
 
     // Create a GeoJSON Point Feature for this vehicle from the info in the XML
+    var description;
+    if (typeof(v._speedKmHr) !== "undefined") {
+      //description = v._secsSinceReport + " sec ago | " + v._speedKmHr + " km/h | heading " + v._heading
+      description = v._secsSinceReport + " sec ago | " + v._speedKmHr + " km/h"
+    } else {
+      description = v._secsSinceReport + " sec ago"
+    }
     var v_out = {
       "type": "Feature",
       "geometry": {
@@ -69,7 +78,7 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
       },
       "properties": {
         "title": v._title,
-        "description": v._secsSinceReport + " sec ago, " + v._speedKmHr + " km/h, heading " + v._heading,
+        "description": description,
         "heading": v._heading,
         "marker-color": v._color,
         "marker-size": "medium",
@@ -237,10 +246,18 @@ function getRoutes() {
         console.log('All routes downloaded and processed.');
       }
             
+      // First call to getVehicles, kicks off the setTimeout loop
       getVehicles();
   });
 }
 
+function manualRefresh() {
+  if (getVehiclesTimeoutId != null) {
+    clearInterval(getVehiclesTimeoutId);
+  }
+  
+  getVehicles();
+}
 
 function getVehicles() {
   async.each(nextbusRequests, function(nextbusRequest, callback) {
@@ -270,14 +287,16 @@ function getVehicles() {
       rotateMarkers();
       
       // additional display adjustments
-      if (!firstFit) {
+      if (!firstFit && fitOnParse) {
         map.fitBounds(featureLayer.getBounds());  
         firstFit = true;
       }
 
+      // reset refresh button visual to indicate done
+      refreshButton.innerHTML = '';
       
       // run it again after some time
-      window.setTimeout(function() {
+      getVehiclesTimeoutId = window.setTimeout(function() {
         getVehicles();
       }, refreshTimeout);
   });
@@ -297,10 +316,19 @@ function downloadURL(url, callback) {
   request.send();
 }
 
+function start() {
+  trackerStart();
+  refreshButton = document.getElementById("refresh-button");
+  refreshButton.onclick = function() {
+    refreshButton.innerHTML = '...';
+    manualRefresh();
+    return false;
+  }
+}
 
 function trackerStart() {
   map = L.mapbox.map('map', 'jasongao.l8n90e91')
-    .setView([42.36, -71.095], 14);
+    .setView([42.362, -71.101], 13);
 
   featureLayer = L.mapbox.featureLayer().addTo(map);
 
