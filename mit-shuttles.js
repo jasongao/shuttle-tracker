@@ -267,7 +267,11 @@ function getVehicles() {
       var responseJSON = x2js.xml_str2json(request.responseText);
 
       // x2JS might return Array or Object, ensure Array
-      nextbusRequest.vehicles = [].concat(responseJSON.body.vehicle);
+      if ("vehicle" in responseJSON.body) {
+        nextbusRequest.vehicles = [].concat(responseJSON.body.vehicle);
+      } else {
+        nextbusRequest.vehicles = [];
+      }
       
       callback();
     });
