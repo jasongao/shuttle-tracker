@@ -24,10 +24,14 @@ refreshButton = null;
 getVehiclesTimeoutId = null;
 
 
+routesDrawn = [];
+
 function constructGeoJSONAll() {
   geoJSON = {};
   geoJSON.type = "FeatureCollection";
   geoJSON.features = [];
+  
+  routesDrawn = [];
   
   nextbusRequests.forEach(function(nextbusRequest){
     var features = vehiclesToGeoJSONFeatures(nextbusRequest);
@@ -41,7 +45,7 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
   var vehicles = nextbusRequest.vehicles;
   var geoJSON = [];
 
-  console.log("Parsing " + vehicles.length + " vehicles...");
+  console.log("Parsing and drawing " + vehicles.length + " vehicles on " + nextbusRequest.agency + " - " + nextbusRequest.route);
   for (var i = 0; i < vehicles.length; i++) {  
     var v = vehicles[i];
 
@@ -52,10 +56,13 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
       v._title = v._routeTag;
       v._color = "0000ff";
     } else {
-      // Add route line segments and stop markers
-      // TODO refactor so it's called once per route rather than per vehicle
-      geoJSON = geoJSON.concat(getPathFeaturesFromRoute(r));
-      //geoJSON = geoJSON.concat(getStopFeaturesFromRoute(r));
+      // Add this vehicle's route line segments and stop markers if not already drawn
+      if (routesDrawn.indexOf(r) < 0) {
+        geoJSON = geoJSON.concat(getPathFeaturesFromRoute(r));
+        //geoJSON = geoJSON.concat(getStopFeaturesFromRoute(r));
+        routesDrawn.push(r);
+      } 
+      
 
       // Add in vehicle display details
       v._title = r._title;
@@ -81,7 +88,7 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
         "description": description,
         "heading": v._heading,
         "marker-color": v._color,
-        "marker-size": "medium",
+        "marker-size": "large",
         "marker-symbol": "bus"
       }
     };
@@ -104,10 +111,16 @@ function getStopFeaturesFromRoute(r) {
     p.type = "Feature";
 
     p.properties = {};
+    p.properties["title"] = s._title;
     p.properties["marker-color"] = "#" + r._color;
     p.properties["marker-size"] = "small";
     p.properties["marker-symbol"] = "circle";
-    p.properties["title"] = s._title;
+    //p.properties.icon = {};
+    //p.properties.icon.iconUrl = "/mapbox.js/assets/images/astronaut1.png";
+    //p.properties.icon.iconSize = [50, 50]; // size of the icon
+    //p.properties.icon.iconAnchor = [25, 25]; // point of the icon which will correspond to marker's location
+    //p.properties.icon.popupAnchor = [0, -25]; // point from which the popup should open relative to the iconAnchor
+    //p.properties.icon.className = "dot";
 
     p.geometry = {};
     p.geometry.type = "Point";
@@ -121,7 +134,7 @@ function getStopFeaturesFromRoute(r) {
 
 
 function getPathFeaturesFromRoute(r) {
-  console.log("Parsing route " + r._tag);
+  console.log("Parsing and drawing route " + r._tag);
   features = [];
 
   for (var i = 0; i < r.path.length; i++) {
@@ -184,7 +197,7 @@ function findRoute(agency, tag) {
   nextbusRequests.forEach(function(nextbusRequest) {
     if (nextbusRequest.agency === agency) {
       if (nextbusRequest.route === "" || nextbusRequest.route === tag) {
-        routes = nextbusRequest.routes;
+        routes = nextbusRequest.returnedRoutes;
       }
     }
   });
@@ -233,7 +246,7 @@ function getRoutes() {
       var responseJSON = x2js.xml_str2json(request.responseText);
       
       // x2JS might return Array or Object, ensure Array
-      nextbusRequest.routes = [].concat(responseJSON.body.route);
+      nextbusRequest.returnedRoutes = [].concat(responseJSON.body.route);
       
       callback();
     });
@@ -320,22 +333,30 @@ function downloadURL(url, callback) {
   request.send();
 }
 
-function start() {
-  trackerStart();
+function initialize() {
+  map = L.mapbox.map('map', 'jasongao.l8n90e91')
+    .setView([42.362, -71.101], 13);
+  
+  featureLayer = L.mapbox.featureLayer().addTo(map);
+  // TODO use separate featureLayer for routes, stops, and vehicles
+  
+  // Set a custom icon on each marker based on feature properties.
+  //featureLayer.on('layeradd', function(e) {
+  //    var marker = e.layer,
+  //        feature = marker.feature;
+  //
+  //    marker.setIcon(L.icon(feature.properties.icon));
+  //});
+  
+  // Setup refresh button action
   refreshButton = document.getElementById("refresh-button");
   refreshButton.onclick = function() {
     refreshButton.innerHTML = '...';
     manualRefresh();
     return false;
   }
-}
-
-function trackerStart() {
-  map = L.mapbox.map('map', 'jasongao.l8n90e91')
-    .setView([42.362, -71.101], 13);
-
-  featureLayer = L.mapbox.featureLayer().addTo(map);
-
+  
+  // Initial API request
   getRoutes();
 }
 
