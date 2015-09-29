@@ -259,7 +259,7 @@ function getRoutes() {
       
       // x2JS might return Array or Object, ensure Array
       nextbusRequest.returnedRoutes = [].concat(responseJSON.body.route);
-      console.log(responseJSON.body);
+      //console.log(responseJSON.body);
       
       callback();
     });
@@ -361,8 +361,6 @@ function initialize() {
   location.search.substr(1).split("&").forEach(function(item) {var s = item.split("="), k = s[0], v = s[1] && decodeURIComponent(s[1]); (k in qd) ? qd[k].push(v) : qd[k] = [v]});
   console.log("GET parameters: ");
   console.log(qd);
-  
-  
   
   // special key for showing the stops on routes
   if (typeof(qd.showStops) !== 'undefined') {
