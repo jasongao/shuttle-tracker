@@ -23,6 +23,8 @@ firstFit = false;
 refreshButton = null;
 getVehiclesTimeoutId = null;
 
+showStops = false;
+
 
 routesDrawn = [];
 
@@ -59,7 +61,9 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
       // Add this vehicle's route line segments and stop markers if not already drawn
       if (routesDrawn.indexOf(r) < 0) {
         geoJSON = geoJSON.concat(getPathFeaturesFromRoute(r));
-        //geoJSON = geoJSON.concat(getStopFeaturesFromRoute(r));
+        if (showStops) {
+          geoJSON = geoJSON.concat(getStopFeaturesFromRoute(r));
+        }
         routesDrawn.push(r);
       } 
       
@@ -196,12 +200,13 @@ function findRoute(agency, tag) {
   var routes = [];
   nextbusRequests.forEach(function(nextbusRequest) {
     if (nextbusRequest.agency === agency) {
-      if (nextbusRequest.route === "" || nextbusRequest.route === tag) {
+      if ((nextbusRequest.route === "" || nextbusRequest.route === tag) && typeof(nextbusRequest.returnedRoutes) !== 'undefined') {
         routes = nextbusRequest.returnedRoutes;
       }
     }
   });
   
+  // routes.length might be 0 if routes were not returned by nextbus
   for (var i = 0; i < routes.length; i++) {
     if (routes[i]._tag === tag) {
       return routes[i];
@@ -245,8 +250,16 @@ function getRoutes() {
     downloadURL(url, function(request) {
       var responseJSON = x2js.xml_str2json(request.responseText);
       
+      if (typeof(responseJSON.body.Error) !== 'undefined') {
+        //console.log("Error in NextBus API response: ");
+        //console.log(responseJSON.body);
+        callback(responseJSON.body.Error);
+        return;
+      }
+      
       // x2JS might return Array or Object, ensure Array
       nextbusRequest.returnedRoutes = [].concat(responseJSON.body.route);
+      console.log(responseJSON.body);
       
       callback();
     });
@@ -255,6 +268,7 @@ function getRoutes() {
         // One of the iterations produced an error.
         // All processing will now stop.
         console.log('Failed to get a route: ' + err);
+        return;
       } else {
         console.log('All routes downloaded and processed.');
       }
@@ -278,6 +292,13 @@ function getVehicles() {
     
     downloadURL(url, function(request) {
       var responseJSON = x2js.xml_str2json(request.responseText);
+      
+      if (typeof(responseJSON.body.Error) !== 'undefined') {
+        //console.log("Error in NextBus API response: ");
+        //console.log(responseJSON.body);
+        callback(responseJSON.body.Error);
+        return;
+      }
 
       // x2JS might return Array or Object, ensure Array
       if ("vehicle" in responseJSON.body) {
@@ -290,10 +311,14 @@ function getVehicles() {
     });
     
   }, function(err){
+      // reset refresh button visual to indicate done
+      refreshButton.innerHTML = '';
+    
       if (err) {
         // One of the iterations produced an error.
         // All processing will now stop.
         console.log('Failed to get vehicle locations for a route: ' + err);
+        return;
       } else {
         console.log('Vehicle locations for all routes downloaded and processed.');
       }
@@ -308,9 +333,6 @@ function getVehicles() {
         map.fitBounds(featureLayer.getBounds());  
         firstFit = true;
       }
-
-      // reset refresh button visual to indicate done
-      refreshButton.innerHTML = '';
       
       // run it again after some time
       getVehiclesTimeoutId = window.setTimeout(function() {
@@ -334,6 +356,41 @@ function downloadURL(url, callback) {
 }
 
 function initialize() {
+  // If GET paramters present, use them to customize nextbus API requests
+  var qd = {};
+  location.search.substr(1).split("&").forEach(function(item) {var s = item.split("="), k = s[0], v = s[1] && decodeURIComponent(s[1]); (k in qd) ? qd[k].push(v) : qd[k] = [v]});
+  console.log("GET parameters: ");
+  console.log(qd);
+  
+  
+  
+  // special key for showing the stops on routes
+  if (typeof(qd.showStops) !== 'undefined') {
+    showStops = true; // force true regardless of global setting
+    delete qd.showStops;
+  }
+  
+  // check both length and non-presence of empty string GET param key
+  if (Object.keys(qd).length > 0 && typeof(qd[""]) === 'undefined') {
+    nextbusRequests = [];
+    
+    for (agency in qd) {
+        routes = qd[agency];
+        for (i = 0; i < routes.length; i++) {
+          nextbusRequests.push(
+            {
+              "agency": agency,
+              "route": routes[i]
+            }
+          );
+        }
+      
+    }
+    
+  }
+  
+  
+  
   map = L.mapbox.map('map', 'jasongao.l8n90e91')
     .setView([42.362, -71.101], 13);
   
