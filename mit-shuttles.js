@@ -1,6 +1,8 @@
-fitOnParse = false;
-refreshTimeout = 10000;
-L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25nYW8iLCJhIjoiWEFEbnplWSJ9.z_4HeYl01RN0tYSK6DxpbQ';
+// Location-specific configuration
+// MIT
+/*
+initialCenter = [42.362, -71.101];
+initialZoom = 13;
 nextbusRequests = [
   {
     "agency": "mit",
@@ -10,23 +12,46 @@ nextbusRequests = [
     "agency": "mbta",
     "route": "47"
   },
-/*
-  {
-    "agency": "mbta",
-    "route": "1"
-  }
+];
 */
+
+
+
+// Emeryville
+initialCenter = [37.84, -122.29];
+initialZoom = 13;
+nextbusRequests = [
+  {
+    "agency": "emery",
+    "route": "Hollis"
+  },
+  {
+    "agency": "emery",
+    "route": "powell"
+  },
+  {
+    "agency": "emery",
+    "route": "south_hollis"
+  },
 ];
 
-x2js = new X2JS();
+
+// Non-location-specific configuration
+showStops = false;
+fitOnParse = false;
 firstFit = false;
+refreshTimeout = 10000;
+L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25nYW8iLCJhIjoiWEFEbnplWSJ9.z_4HeYl01RN0tYSK6DxpbQ';
+
+
+
+// Global variables
+x2js = new X2JS();
 refreshButton = null;
 getVehiclesTimeoutId = null;
-
-showStops = false;
-
-
 routesDrawn = [];
+
+
 
 function constructGeoJSONAll() {
   geoJSON = {};
@@ -390,7 +415,7 @@ function initialize() {
   
   
   map = L.mapbox.map('map', 'jasongao.l8n90e91')
-    .setView([42.362, -71.101], 13);
+    .setView(initialCenter, initialZoom);
   
   featureLayer = L.mapbox.featureLayer().addTo(map);
   // TODO use separate featureLayer for routes, stops, and vehicles
