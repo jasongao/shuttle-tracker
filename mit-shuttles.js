@@ -1,9 +1,10 @@
+ "use strict"
+
 // Location-specific configuration
 // MIT
-/*
-initialCenter = [42.362, -71.101];
-initialZoom = 13;
-nextbusRequests = [
+var initialLatLon = [42.362, -71.101];
+var initialZoom = 13;
+var nextbusRequests = [
   {
     "agency": "mit",
     "route": ""
@@ -13,14 +14,14 @@ nextbusRequests = [
     "route": "47"
   },
 ];
-*/
 
 
 
 // Emeryville
-initialCenter = [37.84, -122.29];
-initialZoom = 13;
-nextbusRequests = [
+/*
+var initialLatLon = [37.84, -122.29];
+var initialZoom = 13;
+var nextbusRequests = [
   {
     "agency": "emery",
     "route": "Hollis"
@@ -34,27 +35,29 @@ nextbusRequests = [
     "route": "south_hollis"
   },
 ];
+*/
 
 
 // Non-location-specific configuration
-showStops = false;
-fitOnParse = false;
-firstFit = false;
-refreshTimeout = 10000;
+var showStops = false;
+var fitOnParse = false;
+var firstFit = false;
+var refreshTimeout = 10000;
 L.mapbox.accessToken = 'pk.eyJ1IjoiamFzb25nYW8iLCJhIjoiWEFEbnplWSJ9.z_4HeYl01RN0tYSK6DxpbQ';
 
 
 
 // Global variables
-x2js = new X2JS();
-refreshButton = null;
-getVehiclesTimeoutId = null;
-routesDrawn = [];
+var x2js = new X2JS();
+var refreshButton = null;
+var getVehiclesTimeoutId = null;
+var routesDrawn = [];
+var featureLayer = null;
 
 
 
 function constructGeoJSONAll() {
-  geoJSON = {};
+  var geoJSON = {};
   geoJSON.type = "FeatureCollection";
   geoJSON.features = [];
   
@@ -164,10 +167,10 @@ function getStopFeaturesFromRoute(r) {
 
 function getPathFeaturesFromRoute(r) {
   console.log("Parsing and drawing route " + r._tag);
-  features = [];
+  var features = [];
 
   for (var i = 0; i < r.path.length; i++) {
-    pathSegment = r.path[i];
+    var pathSegment = r.path[i];
 
     var ls = {};
 
@@ -183,7 +186,7 @@ function getPathFeaturesFromRoute(r) {
     ls.geometry.coordinates = [];
 
     for (var j = 0; j < pathSegment.point.length; j++) {
-      p = pathSegment.point[j];
+      var p = pathSegment.point[j];
       ls.geometry.coordinates.push([p._lon, p._lat]);
     }
     
@@ -250,7 +253,7 @@ function randomizeUrl(url) {
 
 
 function nextbusUrl(command, agency, route, otherParams) {
-  url = "http://webservices.nextbus.com/service/publicXMLFeed?";
+  var url = "http://webservices.nextbus.com/service/publicXMLFeed?";
   if (command.length > 0) {
     url = url + "&command=" + command;
   }
@@ -381,11 +384,24 @@ function downloadURL(url, callback) {
 }
 
 function initialize() {
-  // If GET paramters present, use them to customize nextbus API requests
+  // If GET paramters present, use them to customize map location and nextbus API requests
   var qd = {};
   location.search.substr(1).split("&").forEach(function(item) {var s = item.split("="), k = s[0], v = s[1] && decodeURIComponent(s[1]); (k in qd) ? qd[k].push(v) : qd[k] = [v]});
   console.log("GET parameters: ");
   console.log(qd);
+  
+  // special keys for setting initial map position coordinates
+  if (typeof(qd.lat) !== 'undefined' && typeof(qd.lon) !== 'undefined') {
+    initialLatLon = [qd.lat[0], qd.lon[0]];
+    delete qd.lat;
+    delete qd.lon;
+  }
+  
+  // special key for setting initial map zoom level
+  if (typeof(qd.zoom) !== 'undefined') {
+    initialZoom = qd.zoom[0]
+    delete qd.zoom;
+  }
   
   // special key for showing the stops on routes
   if (typeof(qd.showStops) !== 'undefined') {
@@ -397,9 +413,9 @@ function initialize() {
   if (Object.keys(qd).length > 0 && typeof(qd[""]) === 'undefined') {
     nextbusRequests = [];
     
-    for (agency in qd) {
-        routes = qd[agency];
-        for (i = 0; i < routes.length; i++) {
+    for (var agency in qd) {
+        var routes = qd[agency];
+        for (var i = 0; i < routes.length; i++) {
           nextbusRequests.push(
             {
               "agency": agency,
@@ -412,10 +428,9 @@ function initialize() {
     
   }
   
-  
-  
-  map = L.mapbox.map('map', 'jasongao.l8n90e91')
-    .setView(initialCenter, initialZoom);
+  // Setup map
+  var map = L.mapbox.map('map', 'jasongao.l8n90e91')
+    .setView(initialLatLon, initialZoom);
   
   featureLayer = L.mapbox.featureLayer().addTo(map);
   // TODO use separate featureLayer for routes, stops, and vehicles
