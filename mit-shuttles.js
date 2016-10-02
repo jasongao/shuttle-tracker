@@ -133,10 +133,10 @@ function vehiclesToGeoJSONFeatures(nextbusRequest) {
 
 
 function getStopFeaturesFromRoute(r) {
-  features = [];
+  var features = [];
 
   for (var i = 0; i < r.stop.length; i++) {
-    s = r.stop[i];
+    var s = r.stop[i];
 
     var p = {};
 
